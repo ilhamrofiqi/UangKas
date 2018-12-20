@@ -1,5 +1,6 @@
 package com.example.ilhamrofiqi.uangkas;
 
+import android.database.sqlite.SQLiteDatabase;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -10,6 +11,7 @@ import android.widget.RadioGroup;
 import android.widget.Toast;
 
 import com.andexert.library.RippleView;
+import com.example.ilhamrofiqi.uangkas.Helper.SqliteHelper;
 
 public class AddActivity extends AppCompatActivity {
 
@@ -21,12 +23,15 @@ public class AddActivity extends AppCompatActivity {
 
     String status;
 
+    SqliteHelper sqliteHelper;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add);
 
         status = "";
+        sqliteHelper = new SqliteHelper(this);
 
         radio_status        = findViewById(R.id.radio_status);
         radio_masuk         = findViewById(R.id.radio_masuk);
@@ -59,7 +64,11 @@ public class AddActivity extends AppCompatActivity {
             @Override
             public void onComplete(RippleView rippleView) {
 
-                if (status.equals("")){
+                if (status.equals("") || edit_jumlah.getText().toString().equals("") || edit_keterangan.getText().toString().equals("")){
+                    Toast.makeText(getApplicationContext(), "Isi Data Dengan Benar",
+                            Toast.LENGTH_LONG).show();
+                }
+                else if (status.equals("")){
                     Toast.makeText(getApplicationContext(), "Status Harus Dilengkapi",
                             Toast.LENGTH_LONG).show();
                     radio_status.requestFocus();
@@ -90,7 +99,13 @@ public class AddActivity extends AppCompatActivity {
     }
 
     private void simpanData(){
-        Toast.makeText(getApplicationContext(), "Data Keuangan Berhasil Disimpan",
+
+        SQLiteDatabase database = sqliteHelper.getWritableDatabase();
+        database.execSQL("INSERT INTO transaksi (status, jumlah, keterangan) VALUES ('" + status +
+                "', '" +edit_jumlah.getText().toString() +"', '"+ edit_keterangan.getText().toString() +"')");
+
+        Toast.makeText(getApplicationContext(), "Transaksi Berehasil Disimpan",
                 Toast.LENGTH_LONG).show();
+        finish();
     }
 }
