@@ -47,7 +47,7 @@ public class AddActivity extends AppCompatActivity {
                 switch (checkedId){
                     case R.id.radio_masuk: status = "MASUK";
                     break;
-                    case  R.id.radio_keluar: status = "Keluar";
+                    case  R.id.radio_keluar: status = "KELUAR";
                     break;
                 }
             }
