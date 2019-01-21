@@ -1,9 +1,13 @@
 package com.example.ilhamrofiqi.uangkas;
 
+import android.app.AlertDialog;
 import android.app.Dialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -19,7 +23,9 @@ import android.widget.AdapterView;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import com.andexert.library.RippleView;
 import com.example.ilhamrofiqi.uangkas.Helper.SqliteHelper;
 
 import java.text.NumberFormat;
@@ -32,13 +38,16 @@ public class MainActivity extends AppCompatActivity {
     SwipeRefreshLayout swipe_refresh;
     ListView list_kas;
     ArrayList<HashMap<String, String>> aruskas;
-
     TextView text_masuk, text_keluar, text_total;
 
     SqliteHelper sqliteHelper;
     Cursor cursor;
 
-    String transaksi_id;
+    public static String transaksi_id, tgl_dari, tgl_ke;
+    public static boolean filter;
+    public static TextView text_filter;
+
+    String query_kas, query_total;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,6 +69,7 @@ public class MainActivity extends AppCompatActivity {
         text_masuk      = findViewById(R.id.text_masuk);
         text_keluar     = findViewById(R.id.text_keluar);
         text_total      = findViewById(R.id.text_total);
+        text_filter     = findViewById(R.id.text_filter);
         list_kas        = findViewById(R.id.list_kas);
         swipe_refresh   = findViewById(R.id.swipe_refresh);
         aruskas         = new ArrayList<>();
@@ -69,6 +79,13 @@ public class MainActivity extends AppCompatActivity {
         swipe_refresh.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
+
+                query_kas =
+                        "SELECT *, strftime('%d/%m/%Y', tanggal) AS tgl FROM transaksi ORDER BY transaksi_id DESC ";
+                query_total =
+                        "SELECT SUM(jumlah) AS total," +
+                        "(SELECT SUM(jumlah) FROM transaksi WHERE status='MASUK') AS masuk," +
+                        "(SELECT SUM(jumlah) FROM transaksi WHERE status='KELUAR') AS keluar FROM transaksi";
                 kasAdapter();
             }
         });
@@ -78,6 +95,25 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onResume(){
         super.onResume();
+
+        query_kas =
+                "SELECT *, strftime('%d/%m/%Y', tanggal) AS tgl FROM transaksi ORDER BY transaksi_id DESC ";
+        query_total =
+                "SELECT SUM(jumlah) AS total," +
+                "(SELECT SUM(jumlah) FROM transaksi WHERE status='MASUK') AS masuk," +
+                "(SELECT SUM(jumlah) FROM transaksi WHERE status='KELUAR') AS keluar FROM transaksi";
+
+            if (filter){
+                query_kas =
+                        "SELECT *, strftime('%d/%m/%Y', tanggal) AS tgl FROM transaksi" +
+                                " WHERE (tanggal >= '"+tgl_dari+"') AND (tanggal <= '"+tgl_ke+"') ORDER BY transaksi_id DESC ";
+                query_total =
+                        "SELECT SUM(jumlah) AS total," +
+                        "(SELECT SUM(jumlah) FROM transaksi WHERE status='MASUK' AND (tanggal >= '"+tgl_dari+"') AND (tanggal <= '"+tgl_ke+"'))," +
+                        "(SELECT SUM(jumlah) FROM transaksi WHERE status='KELUAR' AND (tanggal >= '"+tgl_dari+"') AND (tanggal <= '"+tgl_ke+"')) FROM transaksi" +
+                        " WHERE (tanggal >= '"+ tgl_dari +"') AND (tanggal <= '"+tgl_ke+"')";
+            }
+
         kasAdapter();
     }
 
@@ -86,9 +122,7 @@ public class MainActivity extends AppCompatActivity {
         aruskas.clear(); list_kas.setAdapter(null);
 
         SQLiteDatabase db = sqliteHelper.getReadableDatabase();
-        cursor = db.rawQuery(
-                "SELECT *, strftime('%d/%m/%Y', tanggal) AS tgl FROM transaksi ORDER BY transaksi_id DESC "
-                , null);
+        cursor = db.rawQuery( query_kas, null);
         cursor.moveToFirst();
 
         for (int i=0; i< cursor.getCount(); i++){
@@ -128,11 +162,7 @@ public class MainActivity extends AppCompatActivity {
         NumberFormat rupiah = NumberFormat.getInstance(Locale.GERMAN);
 
         SQLiteDatabase db = sqliteHelper.getReadableDatabase();
-        cursor = db.rawQuery(
-                "SELECT SUM(jumlah) AS total," +
-                        "(SELECT SUM(jumlah) FROM transaksi WHERE status='MASUK') AS masuk," +
-                        "(SELECT SUM(jumlah) FROM transaksi WHERE status='KELUAR') AS keluar FROM transaksi"
-                ,null);
+        cursor = db.rawQuery(query_total,null);
         cursor.moveToFirst();
 
         text_masuk.setText(rupiah.format(cursor.getDouble(1)));
@@ -142,29 +172,30 @@ public class MainActivity extends AppCompatActivity {
         );
 
         swipe_refresh.setRefreshing(false);
+        if (!filter){ text_filter.setVisibility(View.GONE);}
+            filter = false;
+        }
 
-    }
 
     private void ListMenu(){
         final Dialog dialog = new Dialog(MainActivity.this);
         dialog.setContentView(R.layout.list_menu);
-        dialog.getWindow().setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT);
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
-        TextView text_hapus = dialog.findViewById(R.id.text_hapus);
-        TextView text_edit = dialog.findViewById(R.id.text_edit);
-
-        text_hapus.setOnClickListener(new View.OnClickListener() {
+        RippleView rip_hapus = dialog.findViewById(R.id.rip_hapus);
+        RippleView rip_edit = dialog.findViewById(R.id.rip_edit);
+        rip_hapus.setOnRippleCompleteListener(new RippleView.OnRippleCompleteListener() {
             @Override
-            public void onClick(View v) {
+            public void onComplete(RippleView rippleView) {
                 dialog.dismiss();
                 Hapus();
             }
         });
-
-        text_edit.setOnClickListener(new View.OnClickListener() {
+        rip_edit.setOnRippleCompleteListener(new RippleView.OnRippleCompleteListener() {
             @Override
-            public void onClick(View v) {
+            public void onComplete(RippleView rippleView) {
                 dialog.dismiss();
+                startActivity(new Intent(MainActivity.this, EditActivity.class));
             }
         });
 
@@ -172,6 +203,30 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void Hapus(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Konfirmasi");
+        builder.setMessage("Apakah Anda Yakin Menghapus Data Ini?");
+        builder.setPositiveButton(
+                "Yes", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+
+                        SQLiteDatabase db = sqliteHelper.getWritableDatabase();
+                        db.execSQL("DELETE FROM transaksi WHERE transaksi_id = '"+ transaksi_id +"' ");
+
+                        Toast.makeText(getApplicationContext(), "Data Berhasil Dihapus", Toast.LENGTH_LONG).show();
+                        kasAdapter();
+                    }
+                });
+        builder.setNegativeButton(
+                "No", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                });
+        builder.show();
 
     }
 
@@ -190,7 +245,8 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
 
         //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
+        if (id == R.id.action_filter) {
+            startActivity(new Intent(this, FilterActivity.class));
             return true;
         }
 

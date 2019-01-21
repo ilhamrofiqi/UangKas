@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">UangKas</string>
-    <string name="action_settings">Settings</string>
+    <string name="action_filter">Filter</string>
 </resources>
